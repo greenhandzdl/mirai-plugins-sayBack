@@ -2,7 +2,6 @@ package com.greenhandzdl
 
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
-import net.mamoe.mirai.event.events.FriendMessageEvent
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.globalEventChannel
 import net.mamoe.mirai.message.data.At
@@ -83,17 +82,27 @@ private suspend fun trySendReplyMsg(msgChain: MessageChain, subject: Contact?=nu
                 }
                 message.contentToString().startsWith("猜数字") -> {
                     //获取消息发送人QQ号
-                    var sender = sender.id
-                    group.sendMessage(messageChainOf(At(sender) +PlainText("注意：当游戏开始时，您只能通过输入quit退出，其余一律视为游戏次数")))
+                    val sender = sender.id
+                    group.sendMessage(messageChainOf(At(sender) +PlainText("注意：当游戏开始时，您只能使用 猜数字 + 指定命令")))
                     val num = (1..100).random()
-                    group.sendMessage("游戏开始，请输入数字在[1,100]，输入quit退出")
+                    group.sendMessage("游戏开始，请输入数字在[1,100]，输入quit退出，输入数字继续")
                     var count = 0   //游戏次数
                    //获取sender输入
+                    var input = message.contentToString().replace("猜数字","")
+                    while (input != "quit"){
+                        count++
+                        if (input.toInt() > num){
+                            group.sendMessage(messageChainOf(At(sender) +PlainText("你猜的数字大了，请重新输入")))
+                        }else if (input.toInt() < num){
+                            group.sendMessage(messageChainOf(At(sender) +PlainText("你猜的数字小了，请重新输入")))
+                        }else{
+                            group.sendMessage(messageChainOf(At(sender) +PlainText("恭喜你猜对了，游戏结束，共猜了$count 次")))
+                            break
+                        }
+                        input = message.contentToString().replace("猜数字","")
+                    }
 
             }
-        }
-        globalEventChannel().subscribeAlways<FriendMessageEvent>{
-
         }
     }
 
