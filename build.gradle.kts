@@ -6,10 +6,25 @@ plugins {
     id("net.mamoe.mirai-console") version "2.10.1"
 }
 dependencies{
-    implementation("com.squareup.okhttp3:okhttp:4.8.1")
-    implementation("com.squareup.okio:okio:1.14.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.9")
-    implementation("com.google.code.gson:gson:2.8.5")
+    implementation("com.squareup.okhttp3:okhttp:4.9.3")
+    implementation("com.squareup.okio:okio:3.1.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")
+    implementation("com.google.code.gson:gson:2.9.0")
+
+    //导入io.ktor.http
+    implementation("io.ktor:ktor-client-core:1.6.8")
+    implementation("io.ktor:ktor-client-okhttp:1.6.8")
+    implementation("io.ktor:ktor-client-json:1.6.8")
+    implementation("io.ktor:ktor-client-features:1.6.8")
+    implementation("io.ktor:ktor-client-logging:1.6.8")
+    implementation("io.ktor:ktor-client-json-jvm:1.6.8")
+
+    //导入org.json
+    implementation("org.json:json:20220320")
+
+    //导入libs目录下的所有jar
+    files("libs")
+
 }
 
 
