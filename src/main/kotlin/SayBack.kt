@@ -254,16 +254,17 @@ fun init() {
                         if (!status.has(sender.toString())) {
                             status.put(sender.toString(), 0)
                         }
-                        val send = status.getInt(sender.toString())
+                        val send = status.getString(sender.toString())
                         when (send){
-                            0 ->{
+                            "0" ->{
                                 when (input){
                                     "开始" ->{
-                                        val random = (1..10).random()
                                         //设置sender为10
+                                        val status = JSONObject(File("$dataFolder/guess.json").readText())
                                         status.put(sender.toString(), "10")
                                         //写入guess.json
                                         File("$dataFolder/guess.json").writeText(status.toString())
+                                        val random = (1..10).random()
                                         //将random写入guess_random.json
                                         val randomStatus = JSONObject()
                                         randomStatus.put(sender.toString(), random)
@@ -279,6 +280,7 @@ fun init() {
                                 when (input){
                                     "结束" ->{
                                         //设置sender为0
+                                        val status = JSONObject(File("$dataFolder/guess.json").readText())
                                         status.put(sender.toString(), "0")
                                         //写入guess.json
                                         File("$dataFolder/guess.json").writeText(status.toString())
@@ -296,6 +298,7 @@ fun init() {
                                         //判断input是否等于random
                                         if (input.toInt() == random){
                                             //设置sender为0
+                                            val status = JSONObject(File("$dataFolder/guess.json").readText())
                                             status.put(sender.toString(), "0")
                                             //写入guess.json
                                             File("$dataFolder/guess.json").writeText(status.toString())
@@ -305,6 +308,7 @@ fun init() {
                                         }
                                         else{
                                             //设置sender为sender-1
+                                            val status = JSONObject(File("$dataFolder/guess.json").readText())
                                             status.put(sender.toString(), (status.getInt(sender.toString()) - 1).toString())
                                             //写入guess.json
                                             File("$dataFolder/guess.json").writeText(status.toString())
