@@ -138,7 +138,7 @@ fun init() {
 
                     message.contentToString().startsWith("问答") -> {
                     val m = message.contentToString().replace("问答", "")
-                    val responseMessage = TBP(m)
+                    val responseMessage = tbp(m)
                     group.sendMessage(messageChainOf(PlainText(responseMessage)))
                     }
 
@@ -156,7 +156,7 @@ fun init() {
 
                     else -> {
                         val m = message.contentToString()
-                        val responseMessage = TBP(m)
+                        val responseMessage = tbp(m)
                         group.sendMessage(messageChainOf(PlainText(responseMessage)))
                     }
                 }
@@ -194,7 +194,7 @@ fun wiki(m :String) :String{
     return result
 }
 
-fun TBP(m :String) : String{
+fun tbp(m :String) : String{
     val json = JSONObject(File("data/TBP").readText())
     //获取数据
     val SecretId = json.getString("SecretId")
