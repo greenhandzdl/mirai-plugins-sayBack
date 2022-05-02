@@ -6,6 +6,7 @@ import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.globalEventChannel
 import net.mamoe.mirai.message.data.At
+import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.PlainText
 import net.mamoe.mirai.message.data.messageChainOf
 import okhttp3.FormBody
@@ -13,9 +14,12 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
+import java.net.URL
 
-    fun init() {
-        //如果没有data/com.greenhandzdl.SayBack/TBP.json则创建文件
+fun init() {
+        // val pluginfiles = File(Plugin.dataFolderPath)
+         //如果没有data/com.greenhandzdl.SayBack/TBP.json则创建文件
         if (!File("data/TBP.json").exists()) {
             File("data/TBP.json").createNewFile()
             //向文件初始几个值
@@ -41,9 +45,6 @@ import java.io.File
             super.onEnable()
             logger.info("sayBack onEnable")
 
-            val workingDir = File("data/com.greenhandzdl/")
-            val cacheDir = File("data/com.greenhandzdl/cache/")
-
             init()//初始化配置文件
 
             globalEventChannel().subscribeAlways<GroupMessageEvent> {
@@ -56,8 +57,12 @@ import java.io.File
                             messageChainOf(
                                 At(sender) + PlainText(
                                     "MiraiAutoReply 菜单 \n" +
+                                            "好感度升级类\n" +
+                                            "* 签到\n" +
                                             "功能类：\n" +
                                             "* 复读 + 复读文本\n" +
+                                            "* 好图 \n" +
+                                            "* 维基 + 检查文本\n" +
                                             "* 问答 + 文本\n" +
                                             "游戏类：\n" +
                                             "* 猜数字 + 猜测数字\n" +
@@ -67,9 +72,68 @@ import java.io.File
                         )
                     }
 
+                    message.contentToString().startsWith("签到") -> {
+                        //获取机器时间
+                        val time = System.currentTimeMillis()
+                        //获取机器时间的年月日
+                        val year = time / 1000 / 60 / 60 / 24 / 365
+                        val month = time / 1000 / 60 / 60 / 24 / 30
+                        val day = time / 1000 / 60 / 60 / 24
+                        //获取机器时间的时分秒
+                        val hour = time / 1000 / 60 / 60
+                        val minute = time / 1000 / 60
+                        val second = time / 1000
+                        //合并年月日时分秒
+                        val timeStr = "$year-$month-$day $hour:$minute:$second"
+                        group.sendMessage(
+                            messageChainOf(
+                                At(sender) + PlainText(
+                                    "签到成功！\n" +
+                                            "机器时间：$timeStr"
+                                )
+                            )
+                        )
+
+                    }
+
                     message.contentToString().startsWith("复读") -> {
                         val m = message.contentToString().replace("复读", "")
                         group.sendMessage(messageChainOf(PlainText(m)))
+                    }
+
+                    message.contentToString().startsWith("好图") -> {
+                        val url = "https://img.xjh.me/random_img.php"
+                        val file = File("./img/")
+                        if (!file.exists()) {
+                            file.mkdirs()
+                        }
+                        val fileName = "./img/" + System.currentTimeMillis() + ".jpg"
+                        val fileUrl = URL(url)
+                        val conn = fileUrl.openConnection()
+                        conn.connect()
+                        val inputStream = conn.getInputStream()
+                        val fos = FileOutputStream(fileName)
+                        val buffer = ByteArray(1024)
+                        var len = 0
+                        while (inputStream.read(buffer).also { len = it } != -1) {
+                            fos.write(buffer, 0, len)
+                        }
+                        fos.close()
+                        inputStream.close()
+                        group.sendMessage(
+                            messageChainOf(
+                                At(sender) + Image(
+                                    fileName
+                                )
+                            )
+                        )
+                    }
+
+                    message.contentToString().startsWith("维基") -> {
+                        val m = message.contentToString().replace("维基", "")
+                        val result = wiki(m)
+                        group.sendMessage(messageChainOf(PlainText(result)))
+
                     }
 
                     message.contentToString().startsWith("问答") -> {
@@ -107,8 +171,30 @@ import java.io.File
 
 
 
+fun wiki(m :String) :String{
+    val requestBody =FormBody.Builder()
+        .add("title", m)
+        .build()
+    val request = Request.Builder()
+        .url("https://wiki.greenhandzdl.tk/api/rest_v1/page/related/")
+        .post(requestBody)
+        .build()
+    val response = OkHttpClient().newCall(request).execute()
+    val responseBody = response.body?.string()
+    val json = JSONObject(responseBody)
+    //解析每一个page和extract，并将page和extract拼接起来返回
+    val pages = json.getJSONArray("pages")
+    var result = ""
+    for (i in 0 until pages.length()) {
+        val page = pages.getJSONObject(i)
+        val extract = page.getString("extract")
+        val title = page.getString("title")
+        result += title + ":" + extract + "\n"
+    }
+    return result
+}
 
-fun TBP(m: String) : String{
+fun TBP(m :String) : String{
     val json = JSONObject(File("data/TBP").readText())
     //获取数据
     val SecretId = json.getString("SecretId")
