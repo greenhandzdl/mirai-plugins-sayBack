@@ -23,6 +23,7 @@ import java.io.StringReader
 import java.net.URL
 import java.net.URLConnection
 import javax.xml.parsers.DocumentBuilderFactory
+import kotlin.random.Random
 
 fun init() {
         //必要的初始化(文件夹)
@@ -72,7 +73,7 @@ fun init() {
             //向文件初始几个值
             val json = JSONObject()
             json.put("SecretId", "")
-            json.put("SecretKey", "")
+            json.put("Signature", "")
             json.put("BotId", "")
             json.put("BotEnv", "")
             json.put("TerminalId", "")
@@ -112,6 +113,11 @@ fun init() {
             File("$datafile/IMC/Image.json").writeText(json.toString())
         }
     }
+
+fun update(){
+    //v0.0.1升级到v0.0.2的定义(由于上个版本都有，这里简单接受下check用法
+    //check("$dataFolder/user","user.json","guess_status")
+}
 
 fun check(pathName :String,FileName :String,keyValue :String) {
     val folder = File(pathName)
@@ -213,6 +219,7 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
             logger.info("sayBack onEnable")
 
             init()//初始化配置文件
+            update()//版本更新而做的兼容
 
             globalEventChannel().subscribeAlways<GroupMessageEvent> {
                 //sender.id group.id初始化
@@ -240,11 +247,11 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                                             "* 维基 + 检查文本\n" +
                                             /**
                                             "* 问答 + 文本\n" +
+                                             */
                                             "游戏类：\n" +
                                             "* 猜数字 +\n" +
                                             "~ 开始|结束\n" +
                                             "~ 所猜数字大小[0,100],10次机会\n" +
-                                             */
                                             "其他：\n" +
                                             "* 关于\n"
 
@@ -454,89 +461,14 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
 
 
                     //游戏类
-                    /***
+
                     message.contentToString().startsWith("猜数字") -> {
                         val input = message.contentToString().replace("猜数字", "")
-                        //获取guess.json文件
-                        val status = JSONObject(File("$dataFolder/guess.json").readText())
-                        //从guess中获取send状态,如果没有则建立一个
-                        if (!status.has(sender.toString())) {
-                            status.put(sender.toString(), 0)
-                        }
-                        val send = status.getString(sender.toString())
-                        when (send){
-                            "0" ->{
-                                when (input){
-                                    "开始" ->{
-                                        //设置sender为10
-                                        val status = JSONObject(File("$dataFolder/guess.json").readText())
-                                        status.put(sender.toString(), "10")
-                                        //写入guess.json
-                                        File("$dataFolder/guess.json").writeText(status.toString())
-                                        val random = (1..10).random()
-                                        //将random写入guess_random.json
-                                        val randomStatus = JSONObject()
-                                        randomStatus.put(sender.toString(), random)
-                                        File("$dataFolder/guess_random.json").writeText(randomStatus.toString())
-                                        group.sendMessage(messageChainOf(PlainText("猜数字游戏开始！")))
-                                    }
-                                    else ->{
-                                        group.sendMessage(messageChainOf(PlainText("请先开始游戏！注意：新用户正在初始化，需要重新提交一次开始命令！")))
-                                    }
-                                }
-                            }
-                            else ->{
-                                when (input){
-                                    "结束" ->{
-                                        //设置sender为0
-                                        val status = JSONObject(File("$dataFolder/guess.json").readText())
-                                        status.put(sender.toString(), "0")
-                                        //写入guess.json
-                                        File("$dataFolder/guess.json").writeText(status.toString())
-                                        //读取random的值
-                                        val randomStatus = JSONObject(File("$dataFolder/guess_random.json").readText())
-                                        val random = randomStatus.getInt(sender.toString())
-                                        //将random清零写入guess_random.json
-                                        randomStatus.put(sender.toString(), 0)
-                                        group.sendMessage(messageChainOf(PlainText("猜数字游戏结束！值是$random")))
-                                    }
-                                    else ->{
-                                        //读取random的值
-                                        val randomStatus = JSONObject(File("$dataFolder/guess_random.json").readText())
-                                        val random = randomStatus.getInt(sender.toString())
-                                        //判断input是否等于random
-                                        if (input.toInt() == random){
-                                            //设置sender为0
-                                            val status = JSONObject(File("$dataFolder/guess.json").readText())
-                                            status.put(sender.toString(), "0")
-                                            //写入guess.json
-                                            File("$dataFolder/guess.json").writeText(status.toString())
-                                            //将random清零写入guess_random.json
-                                            randomStatus.put(sender.toString(), 0)
-                                            group.sendMessage(messageChainOf(PlainText("猜对了！")))
-                                        }
-                                        else{
-                                            //设置sender为sender-1
-                                            val status = JSONObject(File("$dataFolder/guess.json").readText())
-                                            status.put(sender.toString(), (status.getInt(sender.toString()) - 1).toString())
-                                            //写入guess.json
-                                            File("$dataFolder/guess.json").writeText(status.toString())
-                                            //判断sender是否为0
-                                            if (status.getInt(sender.toString()) == 0){
-                                                //将random清零写入guess_random.json
-                                                randomStatus.put(sender.toString(), 0)
-                                                group.sendMessage(messageChainOf(PlainText("猜错了！")))
-                                            }
-                                            else{
-                                                group.sendMessage(messageChainOf(PlainText("猜错了！还有${status.getInt(sender.toString())}次机会")))
-                                            }
-                                        }
-                                        }
-                                    }
-                                }
-                            }
+                        //获取$send.json
+                        val send = JSONObject(File("$dataFolder/user/$user.json").readText())
+                        val guess_status = send.getInt("guess_status")
+                        val guess_number = send.getInt("guess_number")
                     }
-                    */
                     /***
                     else -> {
                         val m = message.contentToString()
@@ -578,26 +510,28 @@ fun wiki(m :String) :String{
     }
     return result
 }
-
+/**
 fun tbp(m :String) : String{
     val json = JSONObject(File("$configFolder/TBP.json").readText())
     //获取数据
     val SecretId = json.getString("SecretId")
-    val SecretKey = json.getString("SecretKey")
+    val Signature = json.getString("Signature")
     val BotId = json.getString("BotId")
     val BotEnv = json.getString("BotEnv")
     val TerminalId = json.getString("TerminalId")
+    val Nonce = Random.nextInt(0, 100000) //正整数的随机值
     val client = okhttp3.OkHttpClient()
     val requestBody = FormBody.Builder()
         .add("SecretId", SecretId)
-        .add("SecretKey", SecretKey)
+        .add("Signature", Signature)
         .add("BotId", BotId)
         .add("BotEnv", BotEnv)
         .add("TerminalId", TerminalId)
         .add("Version","2019-06-27")
         .add("Action","TextProcess")
+        .add("Timestamp", Clock.System.now().epochSeconds.toString())
+        .add("Nonce", Nonce.toString())
         .add("InputText", m)
-        .build()
     val request = Request.Builder()
         .url("https://tbp.tencentcloudapi.com")
         .post(requestBody)
@@ -613,3 +547,4 @@ fun tbp(m :String) : String{
     }
     return responseMessage
 }
+**/
