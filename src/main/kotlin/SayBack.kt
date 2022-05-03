@@ -5,6 +5,7 @@ import com.greenhandzdl.SayBack.configFolder
 import com.greenhandzdl.SayBack.dataFolder
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
+import net.mamoe.mirai.contact.Contact.Companion.sendImage
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.globalEventChannel
 import net.mamoe.mirai.message.data.At
@@ -15,18 +16,31 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
+import java.net.URL
+import java.net.URLConnection
 
 fun init() {
-        //必要的初始化
-        val datafile = dataFolder
-        if (!datafile.exists()) {
-            datafile.mkdir()
-        }
+        //必要的初始化(文件夹)
         val configfile = configFolder
         if (!configfile.exists()) {
             configfile.mkdir()
         }
+        val datafile = dataFolder
+        if (!datafile.exists()) {
+            datafile.mkdir()
+        }
+        if(!File("$dataFolder/IMC").exists()){
+            File("$dataFolder/IMC").mkdir()
+        }
+        if(!File("$datafile/group").exists()){
+            File("$datafile/group").mkdir()
+        }
+        if(!File("$datafile/user").exists()){
+            File("$datafile/user").mkdir()
+        }
 
+        //config文件夹下的文件
         //初始化config.json文件
         if(!File("$configfile/config.json").exists()){
             File("$configfile/config.json").createNewFile()
@@ -34,19 +48,6 @@ fun init() {
             json.put("botName", "MiraiAutoReply")
             //写入文件
             File("$configfile/config.json").writeText(json.toString())
-        }
-
-
-        // 初始化permission文件
-        if(!File("$configfile/permission.json").exists()){
-            File("$configfile/permission.json").createNewFile()
-            val json = JSONObject()
-            json.put("", "root")//最高权限，有且只有一个（全局）
-            json.put("","admin")//管理员（略次于root）
-            json.put("", "group.admin")//群管理员（局部，暂时不用管）
-            json.put("", "blacklist")//黑名单，不可以被使用
-            //写入文件
-            File("$configfile/permission.json").writeText(json.toString())
         }
 
         //如果没有TBP.json则创建文件
@@ -63,49 +64,85 @@ fun init() {
             File("$configfile/TBP.json").writeText(json.toString())
         }
 
-        //data初始化
-        //如果没有status.json则创建文件
-        if (!File("$datafile/status.json").exists()) {
-            File("$datafile/status.json").createNewFile()
+        //data文件夹下的文件
+        //初始化group.json文件
+        if (!File("$datafile/group/group.json").exists()) {
+            File("$datafile/group/group.json").createNewFile()
             val json = JSONObject()
-            File("$datafile/status.json").writeText(json.toString())
-            json.put("", "")//(userid,好感度)
+            json.put("permission", "")//权限(0，禁止使用；1，允许使用)
+            json.put("", "")//想好再加
             //写入文件
-            File("$datafile/status.json").writeText(json.toString())
+            File("$datafile/group/group.json").writeText(json.toString())
         }
-
-        //如果没有status_time.json则创建文件
-        if (!File("$datafile/status_time.json").exists()) {
-            File("$datafile/status_time.json").createNewFile()
+        //初始化user.json文件
+        if (!File("$datafile/user/user.json").exists()) {
+            File("$datafile/user/user.json").createNewFile()
             val json = JSONObject()
-            File("$datafile/status_time.json").writeText(json.toString())
-            json.put("", "")//(userid,时间戳)
+            json.put("permission", "1")//权限(0，禁止使用；1，允许使用；2，管理权限；3，root权限)
+            json.put("coins", "0")//货币
+            json.put("time", "")//签到时间
+            json.put("status", "0")//好感值
+            json.put("guess_status", "0")//猜数字游戏状态（0，未开始；1，进行中；）
+            json.put("guess_number", "")//猜数字游戏数字
             //写入文件
-            File("$datafile/status_time.json").writeText(json.toString())
+            File("$datafile/user/user.json").writeText(json.toString())
         }
-
-        //如果没有guess.json则创建文件
-        if (!File("$datafile/guess.json").exists()) {
-            File("$datafile/guess.json").createNewFile()
+        //初始化Image.json文件
+        if (!File("$datafile/IMC/Image.json").exists()) {
+            File("$datafile/IMC/Image.json").createNewFile()
             val json = JSONObject()
-            File("$datafile/guess.json").writeText(json.toString())
-            json.put("", "")//(userid,状态【0：已结束 1~10：正在进行中】)
+            json.put("names", "0")//名字
             //写入文件
-            File("$configfile/guess.json").writeText(json.toString())
+            File("$datafile/IMC/Image.json").writeText(json.toString())
         }
-
-        //如果没有guess_random.json则创建文件
-        if (!File("$datafile/guess_random.json").exists()) {
-            File("$datafile/guess_random.json").createNewFile()
-            val json = JSONObject()
-            File("$datafile/guess_random.json").writeText(json.toString())
-            json.put("", "")//(userid,random)
-            //写入文件
-            File("$configfile/guess_random.json").writeText(json.toString())
-        }
-
     }
 
+//使用中初始化
+fun use_init(user :String, userInWhere :String) {
+
+    val datafile = dataFolder
+    //初始化group.json文件
+    if (!File("$datafile/group/$userInWhere.json").exists()) {
+        File("$datafile/group/$userInWhere.json").createNewFile()
+        val json = JSONObject()
+        json.put("permission", "")//权限(0，禁止使用；1，允许使用)
+        json.put("", "")//想好再加
+        //写入文件
+        File("$datafile/group/$userInWhere.json").writeText(json.toString())
+        val groupNotification = "创建了一个新的群，群号为：$userInWhere"
+    }else
+    {
+        //读取文件
+        val json = JSONObject(File("$datafile/group/$userInWhere.json").readText())
+        if (json.getString("permission") == "0") {
+            val groupNotification = "群号为：$userInWhere 的群已被禁止使用"
+        }else{
+            val groupNotification = "群号为：$userInWhere 的群已被使用"
+        }
+    }
+    //初始化user.json文件
+    if (!File("$datafile/user/$user.json").exists()) {
+        File("$datafile/user/$user.json").createNewFile()
+        val json = JSONObject()
+        json.put("permission", "1")//权限(0，禁止使用；1，允许使用；2，管理权限；3，root权限)
+        json.put("coins", "0")//货币
+        json.put("time", "0")//签到时间
+        json.put("status", "0")//好感值
+        json.put("guess_status", "0")//猜数字游戏状态（0，未开始；1，进行中；）
+        json.put("guess_number", "")//猜数字游戏数字
+        //写入文件
+        File("$datafile/user/$user.json").writeText(json.toString())
+        val userNotification = "创建了一个新的用户，用户名为：$user"
+    }else{
+        //读取文件
+        val json = JSONObject(File("$datafile/user/$user.json").readText())
+        if (json.getString("permission") == "0") {
+            val userNotification = "用户名为：$user 的用户已被禁止使用"
+        }else{
+            val userNotification = "用户名为：$user 的用户已被使用"
+        }
+    }
+}
 
     object SayBack : KotlinPlugin(
         JvmPluginDescription(id = "com.greenhandzdl.mirai-plugins-sayBack", name = "sayBack", version = "0.0.1") {
@@ -117,22 +154,19 @@ fun init() {
             super.onEnable()
             logger.info("sayBack onEnable")
 
-
-
             init()//初始化配置文件
 
             globalEventChannel().subscribeAlways<GroupMessageEvent> {
-                //获取消息发送人QQ号
-                val sender = sender.id
+                //sender.id group.id初始化
+                val user = sender.id.toString()
+                val userInWhere = group.id.toString()
+                val init = use_init(user , userInWhere)
+
                 //获取config.json文件中的值
                 val config = JSONObject(File("$configFolder/config.json").readText())
                 val botName = config.getString("botName")
 
-                //获取permission.json文件中的值(暂时没做过来)
-                //val json = JSONObject(File("$configFolder/permission.json").readText())
-
                 when {
-
                     //菜单类消息
                     (message.contentToString() == "菜单") -> {
                         group.sendMessage(
@@ -159,77 +193,118 @@ fun init() {
                     //好感度升级类
                     message.contentToString().startsWith("签到") -> {
                         //从status.json中获取send的好感度
-                        val json = JSONObject(File("$dataFolder/status.json").readText())
-                        //如果没有这个人的好感度，则初始化好感度为0
-                        if (!json.has(sender.toString())) {
-                            json.put(sender.toString(), 0)
+                        val json = JSONObject(File("$dataFolder/user/$user.json").readText())
+                        //获取coins
+                        val coins = json.getInt("coins")
+                        //获取status
+                        val status = json.getInt("status")
+                        //获取time
+                        val time = json.getInt("time")
+
+                        //如果time为0则赋值当前时间减去40
+                        if (time == 0) {
+                            val time = (System.currentTimeMillis() - 400).toInt()
                         }
-                        //获取好感度
-                        val love = json.getInt(sender.toString()) + 1
-                        //更新好感度
-                        json.put(sender.toString(), love)
-                        //写入文件
-                        File("$dataFolder/status.json").writeText(json.toString())
-                        //获取机器时间
-                        val time = System.currentTimeMillis()
-                        //获取机器时间的年月日
-                        val year = time / 1000 / 60 / 60 / 24 / 365
-                        val month = time / 1000 / 60 / 60 / 24 / 30
-                        val day = time / 1000 / 60 / 60 / 24
-                        //获取机器时间的时分秒
-                        val hour = time / 1000 / 60 / 60
-                        val minute = time / 1000 / 60
-                        val second = time / 1000
-                        //合并年月日时分秒
-                        val timeStr = "$year-$month-$day $hour:$minute:$second"
-                        group.sendMessage(
-                            messageChainOf(
-                                At(sender) + PlainText(
-                                    "签到成功！\n" +
-                                            "$botName 好感度：${love - 1}\n" +
-                                            "$botName 时间：$timeStr"
+
+                        //获取当前时间 - 300
+                        val nowTime = (System.currentTimeMillis() - 300).toInt()
+
+                        if(time < nowTime){
+                            //获取签到时间
+                            val time_now = nowTime + 300
+                            //更新签到时间
+                            json.put("time", time_now)
+                            //更新coins
+                            json.put("coins", coins + 1)
+                            //更新好感度
+                            json.put("status", status + 1)
+                            //更新status.json
+                            File("$dataFolder/user/$user.json").writeText(json.toString())
+                            //发送消息
+                            group.sendMessage(
+                                messageChainOf(
+                                    At(sender) + PlainText(
+                                        "\n 签到成功！\n" +
+                                                "$botName 货币：${coins + 1}\n" +
+                                                "$botName 好感度：${status + 1}\n" +
+                                                "$botName 时间：$time_now\n"
+                                    )
                                 )
                             )
-                        )
+                        }else{
+                            //发送消息
+                            group.sendMessage(
+                                messageChainOf(
+                                    At(sender) + PlainText(
+                                        "\n 签到失败！\n" +
+                                                "$botName 货币：$coins\n" +
+                                                "$botName 好感度：$status\n" +
+                                                "$botName 时间：$time\n"
+                                    )
+                                )
+                            )
+                        }
+
 
                     }
 
                     //功能类
                     message.contentToString().startsWith("复读") -> {
-                        val m = message.contentToString().replace("复读", "")
-                        group.sendMessage(messageChainOf(PlainText(m)))
+                        //从status.json中获取send的好感度
+                        val json = JSONObject(File("$dataFolder/user/$user.json").readText())
+                        //获取coins
+                        val coins = json.getInt("coins")
+                        if (coins >= 1) {
+                            //更新coins
+                            json.put("coins", coins - 1)
+                            //更新status.json
+                            File("$dataFolder/user/$user.json").writeText(json.toString())
+                            //发送消息
+                            group.sendMessage(
+                                messageChainOf(
+                                    At(sender) + PlainText(
+                                        "\n 复读成功！\n" +
+                                                "$botName 货币：${coins - 1}\n"
+                                    )
+                                )
+                            )
+                            val m = message.contentToString().replace("复读", "")
+                            group.sendMessage(messageChainOf(PlainText(m)))
+                        }else{
+                            //发送消息
+                            group.sendMessage(
+                                messageChainOf(
+                                    At(sender) + PlainText(
+                                        "\n 复读失败！\n" +
+                                                "$botName 货币：$coins\n"
+                                    )
+                                )
+                            )
+                        }
+                    }
+
+
+                    message.contentToString().startsWith("好图") -> {
+                        //获取data/IMC/Image.json
+                        val json = JSONObject(File("$dataFolder/IMC/Image.json").readText())
+                        //获取names
+                        val names = json.getInt("names") + 1
+                        val url = "https://img.xjh.me/random_img.php"
+                        val direcurl = URL("url").readText()
+                        //更新names
+                        json.put("names", names + 1)
+                        //更新data/IMC/Image.json
+                        File("$dataFolder/IMC/Image.json").writeText(json.toString())
+
+                        if(download(direcurl,names.toString()) == true) {
+                            subject.sendImage(java.io.File(names.toString()))
+                        }else{
+                            subject.sendMessage(PlainText("糟了，图片下载失败了捏~"))
+                        }
+
                     }
 
                     /***
-
-                    message.contentToString().startsWith("好图") -> {
-                        val url = "https://img.xjh.me/random_img.php"
-                        val file = File("./img/")
-                        if (!file.exists()) {
-                            file.mkdirs()
-                        }
-                        val fileName = "./img/" + System.currentTimeMillis() + ".jpg"
-                        val fileUrl = URL(url)
-                        val conn = fileUrl.openConnection()
-                        conn.connect()
-                        val inputStream = conn.getInputStream()
-                        val fos = FileOutputStream(fileName)
-                        val buffer = ByteArray(1024)
-                        var len = 0
-                        while (inputStream.read(buffer).also { len = it } != -1) {
-                            fos.write(buffer, 0, len)
-                        }
-                        fos.close()
-                        inputStream.close()
-                        group.sendMessage(
-                            messageChainOf(
-                                At(sender) + Image(
-                                    fileName
-                                )
-                            )
-                        )
-                    }
-
                     message.contentToString().startsWith("维基") -> {
                         val m = message.contentToString().replace("维基", "")
                         val result = wiki(m)
@@ -237,15 +312,16 @@ fun init() {
 
                     }
 
-                     ***/
 
                     message.contentToString().startsWith("问答") -> {
                     val m = message.contentToString().replace("问答", "")
                     val responseMessage = tbp(m)
                     group.sendMessage(messageChainOf(PlainText(responseMessage)))
                     }
+                     ***/
 
                     //游戏类
+                    /***
                     message.contentToString().startsWith("猜数字") -> {
                         val input = message.contentToString().replace("猜数字", "")
                         //获取guess.json文件
@@ -327,7 +403,7 @@ fun init() {
                                 }
                             }
                     }
-
+                    */
                     /***
                     else -> {
                         val m = message.contentToString()
@@ -345,7 +421,22 @@ fun init() {
         }
     }
 
-
+//图片下载
+fun download(downLoadUrl: String , filename : String) :Boolean{
+    val url = URL(downLoadUrl)
+    val con: URLConnection = url.openConnection()
+    val `is`: java.io.InputStream = con.getInputStream()
+    val bs = ByteArray(1024)
+    var len: Int
+    val file = File(filename)
+    val os = FileOutputStream(file, true)
+    while (`is`.read(bs).also { len = it } != -1) {
+        os.write(bs, 0, len)
+    }
+    os.close()
+    `is`.close()
+    return true
+}
 
 fun wiki(m :String) :String{
     val requestBody =FormBody.Builder()
