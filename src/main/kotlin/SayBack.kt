@@ -3,6 +3,7 @@ package com.greenhandzdl
 
 import com.greenhandzdl.SayBack.configFolder
 import com.greenhandzdl.SayBack.dataFolder
+import io.netty.handler.codec.http.HttpUtil
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
 import net.mamoe.mirai.contact.Contact.Companion.sendImage
@@ -17,8 +18,10 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.io.StringReader
 import java.net.URL
 import java.net.URLConnection
+import javax.xml.parsers.DocumentBuilderFactory
 
 fun init() {
         //必要的初始化(文件夹)
@@ -30,8 +33,8 @@ fun init() {
         if (!datafile.exists()) {
             datafile.mkdir()
         }
-        if(!File("$dataFolder/IMC").exists()){
-            File("$dataFolder/IMC").mkdir()
+        if(!File("$datafile/IMC").exists()){
+            File("$datafile/IMC").mkdir()
         }
         if(!File("$datafile/group").exists()){
             File("$datafile/group").mkdir()
@@ -48,6 +51,18 @@ fun init() {
             json.put("botName", "MiraiAutoReply")
             //写入文件
             File("$configfile/config.json").writeText(json.toString())
+        }
+        //初始化word.json文件
+        if(!File("$configfile/word.json").exists()){
+            File("$configfile/word.json").createNewFile()
+            val json = JSONObject()
+            json.put("questions", "answers")
+            //写入文件
+            File("$configfile/word.json").writeText(json.toString())
+        }
+        //初始化敏感词.txt文件
+        if(!File("$configfile/敏感词.txt").exists()){
+            File("$configfile/敏感词.txt").createNewFile()
         }
 
         //如果没有TBP.json则创建文件
@@ -97,6 +112,30 @@ fun init() {
         }
     }
 
+fun check(pathName :String,FileName :String,keyValue :String) {
+    val folder = File(pathName)
+    val file = File(pathName + File.separator + FileName)
+    val json = JSONObject()
+    if(!folder.exists()){
+        folder.mkdir()
+        file.createNewFile()
+        json.put(keyValue, "0")
+        File("$file").writeText(json.toString())
+    }else{
+        if(!file.exists()) {
+            file.createNewFile()
+            json.put(keyValue, "0")
+            File("$file").writeText(json.toString())
+        }else{
+            //如果keyvalue为空，则添加到json中
+            if(keyValue.isEmpty()){
+                json.put(keyValue, "0")
+                File("$file").writeText(json.toString())
+            }
+        }
+    }
+}
+
 //使用中初始化
 fun use_init(user :String, userInWhere :String) {
 
@@ -144,6 +183,24 @@ fun use_init(user :String, userInWhere :String) {
     }
 }
 
+//图片下载
+fun download(downLoadUrl: String , filename : String) :Boolean{
+    val url = URL(downLoadUrl)
+    val con: URLConnection = url.openConnection()
+    val `is`: java.io.InputStream = con.getInputStream()
+    val bs = ByteArray(1024)
+    var len: Int
+    val file = File(filename)
+    val os = FileOutputStream(file, true)
+    while (`is`.read(bs).also { len = it } != -1) {
+        os.write(bs, 0, len)
+    }
+    os.close()
+    `is`.close()
+    return true
+}
+
+
     object SayBack : KotlinPlugin(
         JvmPluginDescription(id = "com.greenhandzdl.mirai-plugins-sayBack", name = "sayBack", version = "0.0.1") {
             author("greenhandzdl")
@@ -166,6 +223,7 @@ fun use_init(user :String, userInWhere :String) {
                 val config = JSONObject(File("$configFolder/config.json").readText())
                 val botName = config.getString("botName")
 
+
                 when {
                     //菜单类消息
                     (message.contentToString() == "菜单") -> {
@@ -178,6 +236,7 @@ fun use_init(user :String, userInWhere :String) {
                                             "功能类：\n" +
                                             "* 复读 + 复读文本\n" +
                                             "* 好图 \n" +
+                                            /**
                                             "* 维基 + 检查文本\n" +
                                             "* 问答 + 文本\n" +
                                             "游戏类：\n" +
@@ -185,6 +244,7 @@ fun use_init(user :String, userInWhere :String) {
                                             "~ 开始|结束\n" +
                                             "~ 所猜数字大小[0,100],10次机会\n" +
                                             "* 关于\n"
+                                            */
                                 )
                             )
                         )
@@ -199,11 +259,14 @@ fun use_init(user :String, userInWhere :String) {
                         //获取status
                         val status = json.getInt("status")
                         //获取time
-                        val time = json.getInt("time")
+                        var time = json.getInt("time")
 
                         //如果time为0则赋值当前时间减去40
                         if (time == 0) {
-                            val time = (System.currentTimeMillis() - 400).toInt()
+                            time = (System.currentTimeMillis() - 400).toInt()
+                            //更新签到时间
+                            json.put("time", time)
+                            File("$dataFolder/user/$user.json").writeText(json.toString())
                         }
 
                         //获取当前时间 - 300
@@ -236,7 +299,7 @@ fun use_init(user :String, userInWhere :String) {
                             group.sendMessage(
                                 messageChainOf(
                                     At(sender) + PlainText(
-                                        "\n 签到失败！\n" +
+                                        "\n 哦哦，签到失败！待会再试试吧！\n" +
                                                 "$botName 货币：$coins\n" +
                                                 "$botName 好感度：$status\n" +
                                                 "$botName 时间：$time\n"
@@ -249,6 +312,7 @@ fun use_init(user :String, userInWhere :String) {
                     }
 
                     //功能类
+                    //复读
                     message.contentToString().startsWith("复读") -> {
                         //从status.json中获取send的好感度
                         val json = JSONObject(File("$dataFolder/user/$user.json").readText())
@@ -287,22 +351,37 @@ fun use_init(user :String, userInWhere :String) {
                     message.contentToString().startsWith("好图") -> {
                         //获取data/IMC/Image.json
                         val json = JSONObject(File("$dataFolder/IMC/Image.json").readText())
-                        //获取names
+                        //获取names并且更新
                         val names = json.getInt("names") + 1
-                        val url = "https://img.xjh.me/random_img.php"
-                        val direcurl = URL("url").readText()
-                        //更新names
                         json.put("names", names + 1)
                         //更新data/IMC/Image.json
                         File("$dataFolder/IMC/Image.json").writeText(json.toString())
 
+                        //获取url
+                        /***
+                        val url = "https://img.xjh.me/random_img.php?return="
                         if(download(direcurl,names.toString()) == true) {
-                            subject.sendImage(java.io.File(names.toString()))
+                            subject.sendImage(File(names.toString()))
                         }else{
                             subject.sendMessage(PlainText("糟了，图片下载失败了捏~"))
                         }
+                         */
 
-                    }
+                        val back = URL("https://img.xjh.me/random_img.php?return=json").readText()
+                        val json_first = JSONObject(back)
+                        try {
+                            val imgurl : String ="https:" + json_first.getString("img")
+                            val name : String = "$dataFolder/IMC/" + names + ".jpg"
+                            if(download(imgurl,name) == true) {
+                                subject.sendImage(java.io.File(name))
+                            }
+                        }catch (e: Exception){
+                            subject.sendMessage(e.toString())
+                        }
+                }
+
+
+
 
                     /***
                     message.contentToString().startsWith("维基") -> {
@@ -421,22 +500,6 @@ fun use_init(user :String, userInWhere :String) {
         }
     }
 
-//图片下载
-fun download(downLoadUrl: String , filename : String) :Boolean{
-    val url = URL(downLoadUrl)
-    val con: URLConnection = url.openConnection()
-    val `is`: java.io.InputStream = con.getInputStream()
-    val bs = ByteArray(1024)
-    var len: Int
-    val file = File(filename)
-    val os = FileOutputStream(file, true)
-    while (`is`.read(bs).also { len = it } != -1) {
-        os.write(bs, 0, len)
-    }
-    os.close()
-    `is`.close()
-    return true
-}
 
 fun wiki(m :String) :String{
     val requestBody =FormBody.Builder()
