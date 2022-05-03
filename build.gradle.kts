@@ -6,6 +6,13 @@ plugins {
     id("net.mamoe.mirai-console") version "2.10.1"
 }
 dependencies{
+
+    //导入kotlinx-datetime
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.3.2")
+
+    //导入okhttputils
+    implementation("com.github.kittinunf.result:result:5.2.1")
+
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("com.squareup.okio:okio:3.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")

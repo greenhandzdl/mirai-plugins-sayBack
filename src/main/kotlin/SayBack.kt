@@ -4,6 +4,7 @@ package com.greenhandzdl
 import com.greenhandzdl.SayBack.configFolder
 import com.greenhandzdl.SayBack.dataFolder
 import io.netty.handler.codec.http.HttpUtil
+import kotlinx.datetime.Clock
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
 import net.mamoe.mirai.contact.Contact.Companion.sendImage
@@ -235,7 +236,7 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                                             "* 签到\n" +
                                             "功能类：\n" +
                                             "* 复读 + 复读文本\n" +
-                                            "* 好图 \n" +
+                                            "* 好图 \n"
                                             /**
                                             "* 维基 + 检查文本\n" +
                                             "* 问答 + 文本\n" +
@@ -263,14 +264,14 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
 
                         //如果time为0则赋值当前时间减去40
                         if (time == 0) {
-                            time = (System.currentTimeMillis() - 400).toInt()
+                            time = (Clock.System.now().epochSeconds - 400).toInt()
                             //更新签到时间
                             json.put("time", time)
                             File("$dataFolder/user/$user.json").writeText(json.toString())
                         }
 
                         //获取当前时间 - 300
-                        val nowTime = (System.currentTimeMillis() - 300).toInt()
+                        val nowTime = (Clock.System.now().epochSeconds - 300).toInt()
 
                         if(time < nowTime){
                             //获取签到时间
@@ -347,37 +348,65 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                         }
                     }
 
-
+                    //获取url
+                    /***
+                    val url = "https://img.xjh.me/random_img.php?return="
+                    if(download(direcurl,names.toString()) == true) {
+                    subject.sendImage(File(names.toString()))
+                    }else{
+                    subject.sendMessage(PlainText("糟了，图片下载失败了捏~"))
+                    }
+                     */
                     message.contentToString().startsWith("好图") -> {
-                        //获取data/IMC/Image.json
-                        val json = JSONObject(File("$dataFolder/IMC/Image.json").readText())
-                        //获取names并且更新
-                        val names = json.getInt("names") + 1
-                        json.put("names", names + 1)
-                        //更新data/IMC/Image.json
-                        File("$dataFolder/IMC/Image.json").writeText(json.toString())
+                        //从status.json中获取send的好感度
+                        val status = JSONObject(File("$dataFolder/user/$user.json").readText())
+                        //获取coins
+                        val coins = status.getInt("coins")
+                        if (coins >= 1) {
+                            //更新coins
+                            status.put("coins", coins - 1)
+                            //更新status.json
+                            File("$dataFolder/user/$user.json").writeText(status.toString())
+                            //发送消息
+                            group.sendMessage(
+                                messageChainOf(
+                                    At(sender) + PlainText(
+                                        "\n 好起来了！\n" +
+                                                "$botName 货币：${coins - 1}\n"
+                                    )
+                                )
+                            )
 
-                        //获取url
-                        /***
-                        val url = "https://img.xjh.me/random_img.php?return="
-                        if(download(direcurl,names.toString()) == true) {
-                            subject.sendImage(File(names.toString()))
-                        }else{
-                            subject.sendMessage(PlainText("糟了，图片下载失败了捏~"))
-                        }
-                         */
-
-                        val back = URL("https://img.xjh.me/random_img.php?return=json").readText()
-                        val json_first = JSONObject(back)
-                        try {
-                            val imgurl : String ="https:" + json_first.getString("img")
-                            val name : String = "$dataFolder/IMC/" + names + ".jpg"
-                            if(download(imgurl,name) == true) {
-                                subject.sendImage(java.io.File(name))
+                            //获取data/IMC/Image.json
+                            val json = JSONObject(File("$dataFolder/IMC/Image.json").readText())
+                            //获取names并且更新
+                            val names = json.getInt("names") + 1
+                            json.put("names", names + 1)
+                            //更新data/IMC/Image.json
+                            File("$dataFolder/IMC/Image.json").writeText(json.toString())
+                            val back = URL("https://img.xjh.me/random_img.php?return=json").readText()
+                            val json_first = JSONObject(back)
+                            try {
+                                val imgurl : String ="https:" + json_first.getString("img")
+                                val name : String = "$dataFolder/IMC/" + names + ".jpg"
+                                if(download(imgurl,name) == true) {
+                                    subject.sendImage(java.io.File(name))
+                                }
+                            }catch (e: Exception){
+                                subject.sendMessage(e.toString())
                             }
-                        }catch (e: Exception){
-                            subject.sendMessage(e.toString())
+                        }else{
+                            //发送消息
+                            group.sendMessage(
+                                messageChainOf(
+                                    At(sender) + PlainText(
+                                        "\n 好不起来，请签到后再好好试试！\n" +
+                                                "$botName 货币：$coins\n"
+                                    )
+                                )
+                            )
                         }
+
                 }
 
 
@@ -390,14 +419,14 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                         group.sendMessage(messageChainOf(PlainText(result)))
 
                     }
-
+                     ***/
 
                     message.contentToString().startsWith("问答") -> {
                     val m = message.contentToString().replace("问答", "")
                     val responseMessage = tbp(m)
                     group.sendMessage(messageChainOf(PlainText(responseMessage)))
                     }
-                     ***/
+
 
                     //游戏类
                     /***
@@ -532,12 +561,15 @@ fun tbp(m :String) : String{
     val BotId = json.getString("BotId")
     val BotEnv = json.getString("BotEnv")
     val TerminalId = json.getString("TerminalId")
+    val client = okhttp3.OkHttpClient()
     val requestBody = FormBody.Builder()
         .add("SecretId", SecretId)
         .add("SecretKey", SecretKey)
         .add("BotId", BotId)
         .add("BotEnv", BotEnv)
         .add("TerminalId", TerminalId)
+        .add("Version","2019-06-27")
+        .add("Action","TextProcess")
         .add("InputText", m)
         .build()
     val request = Request.Builder()
