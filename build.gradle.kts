@@ -18,6 +18,9 @@ dependencies{
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")
     implementation("com.google.code.gson:gson:2.9.0")
 
+    //导入jsoup
+    implementation("org.jsoup:jsoup:1.14.3")
+
     //导入io.ktor.http
     implementation("io.ktor:ktor-client-core:1.6.8")
     implementation("io.ktor:ktor-client-okhttp:1.6.8")
