@@ -236,16 +236,18 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                                             "* 签到\n" +
                                             "功能类：\n" +
                                             "* 复读 + 复读文本\n" +
-                                            "* 好图 \n"
-                                            /**
+                                            "* 好图 \n" +
                                             "* 维基 + 检查文本\n" +
+                                            /**
                                             "* 问答 + 文本\n" +
                                             "游戏类：\n" +
                                             "* 猜数字 +\n" +
                                             "~ 开始|结束\n" +
                                             "~ 所猜数字大小[0,100],10次机会\n" +
+                                             */
+                                            "其他：\n" +
                                             "* 关于\n"
-                                            */
+
                                 )
                             )
                         )
@@ -408,24 +410,47 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                         }
 
                 }
-
-
-
-
-                    /***
                     message.contentToString().startsWith("维基") -> {
                         val m = message.contentToString().replace("维基", "")
-                        val result = wiki(m)
-                        group.sendMessage(messageChainOf(PlainText(result)))
-
+                        //从status.json中获取send的好感度
+                        val status = JSONObject(File("$dataFolder/user/$user.json").readText())
+                        //获取coins
+                        val coins = status.getInt("coins")
+                        if (coins >= 1) {
+                            //更新coins
+                            status.put("coins", coins - 1)
+                            //更新status.json
+                            File("$dataFolder/user/$user.json").writeText(status.toString())
+                            //发送消息
+                            group.sendMessage(
+                                messageChainOf(
+                                    At(sender) + PlainText(
+                                        "\n 查询成功！如果没有则为寻找不到该页\n" +
+                                                "$botName 货币：${coins - 1}\n"
+                                    )
+                                )
+                            )
+                            val result = wiki(m)
+                            group.sendMessage(messageChainOf(PlainText(result)))
+                        }else{
+                            //发送消息
+                            group.sendMessage(
+                                messageChainOf(
+                                    At(sender) + PlainText(
+                                        "\n 查询失败，请签到后再好好试试！\n" +
+                                                "$botName 货币：$coins\n"
+                                    )
+                                )
+                            )
+                        }
                     }
-                     ***/
-
+                    /**
                     message.contentToString().startsWith("问答") -> {
                     val m = message.contentToString().replace("问答", "")
                     val responseMessage = tbp(m)
                     group.sendMessage(messageChainOf(PlainText(responseMessage)))
                     }
+                     */
 
 
                     //游戏类
@@ -519,6 +544,9 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                         group.sendMessage(messageChainOf(PlainText(responseMessage)))
                     }
                     ***/
+                    message.contentToString().startsWith("关于") -> {
+                        group.sendMessage(messageChainOf(PlainText("项目地址：https://github.com/greenhandzdl/mirai-plugins-sayBack")))
+                    }
                 }
             }
         }
@@ -531,12 +559,10 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
 
 
 fun wiki(m :String) :String{
-    val requestBody =FormBody.Builder()
-        .add("title", m)
-        .build()
+    val client = OkHttpClient()
     val request = Request.Builder()
-        .url("https://wiki.greenhandzdl.tk/api/rest_v1/page/related/")
-        .post(requestBody)
+        .url("https://zh.wikipedia.wikimirror.org/api/rest_v1/page/related/$m")
+        .get()
         .build()
     val response = OkHttpClient().newCall(request).execute()
     val responseBody = response.body?.string()
