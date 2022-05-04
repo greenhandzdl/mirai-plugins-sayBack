@@ -244,6 +244,7 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                                             "功能类：\n" +
                                             "* 复读 + 复读文本\n" +
                                             "* 好图 \n" +
+                                            "* 网易云 歌名 \n" +
                                             "* 精准维基 + 检查文本\n" +
                                             "* 相关维基 + 检查文本\n" +
                                             /**
@@ -325,7 +326,7 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                     //功能类
                     //复读
                     message.contentToString().startsWith("复读") -> {
-                        val m = message.contentToString().replace("复读", "")
+                        val m = message.contentToString().replace("复读", "").replace("\\s".toRegex(), "")
                         if (m.isNotEmpty()) {
                             //从status.json中获取send的好感度
                             val json = JSONObject(File("$dataFolder/user/$user.json").readText())
@@ -430,8 +431,62 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                             )
                         }
                 }
+
+                    message.contentToString().startsWith("网易云") -> {
+                        val m = message.contentToString().replace("网易云", "").replace("\\s".toRegex(), "")
+                        if (m.isNotEmpty()) {
+                            //从status.json中获取send的好感度
+                            val status = JSONObject(File("$dataFolder/user/$user.json").readText())
+                            //获取coins
+                            val coins = status.getInt("coins")
+                            if (coins >= 1) {
+                                //更新coins
+                                status.put("coins", coins - 1)
+                                //更新status.json
+                                File("$dataFolder/user/$user.json").writeText(status.toString())
+                                //发送消息
+                                group.sendMessage(
+                                    messageChainOf(
+                                        At(sender) + PlainText(
+                                            "\n 正在搜索中了，如果没有则不发送！\n" +
+                                                    "$botName 货币：${coins - 1}\n"
+                                        )
+                                    )
+                                )
+                                val id = getSongsId(m)
+                                //访问https://music.163.com/song/media/outer/url?id=${id}.mp3
+                                val url = "https://music.163.com/song/media/outer/url?id=$id.mp3"
+                                group.sendMessage(
+                                    messageChainOf(
+                                        PlainText(url)
+                                    )
+                                )
+
+                            }else{
+                                //发送消息
+                                group.sendMessage(
+                                    messageChainOf(
+                                        At(sender) + PlainText(
+                                            "\n 好不起来，请签到后再好好试试！\n" +
+                                                    "$botName 货币：$coins\n"
+                                        )
+                                    )
+                                )
+                            }
+                        }else{
+                            //发送消息
+                            group.sendMessage(
+                                messageChainOf(
+                                    At(sender) + PlainText(
+                                        "\n 请输入相关指令！\n"
+                                    )
+                                )
+                            )
+                        }
+                    }
+
                     message.contentToString().startsWith("精准维基")->{
-                        val m = message.contentToString().replace("精准维基", "")
+                        val m = message.contentToString().replace("精准维基", "").replace("\\s".toRegex(), "")
                         if(m.isNotEmpty()){
                             //从status.json中获取send的好感度
                             val status = JSONObject(File("$dataFolder/user/$user.json").readText())
@@ -479,7 +534,7 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                     }
 
                     message.contentToString().startsWith("相关维基") -> {
-                        val m = message.contentToString().replace("相关维基", "")
+                        val m = message.contentToString().replace("相关维基", "").replace("\\s".toRegex(), "")
                         if(m.isNotEmpty()){
                             //从status.json中获取send的好感度
                             val status = JSONObject(File("$dataFolder/user/$user.json").readText())
@@ -535,101 +590,109 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
 
                     //游戏类
                     message.contentToString().startsWith("猜数字") -> {
-                        val input = message.contentToString().replace("猜数字", "").toString()
+                        var input = message.contentToString().replace("猜数字", "").replace("\\s".toRegex(), "")
                         if (input.isNotEmpty()) {
                             //获取$user.json
-                            val user = JSONObject(File("$dataFolder/user/$user.json").readText())
+                            val user = JSONObject(File("$dataFolder/user/${sender.id}.json").readText())
                             var guess_status = user.getInt("guess_status")
                             var guess_number = user.getInt("guess_number")
-                            //如果guess_status为0，则判断是否输入开始游戏
+                            //还有次数的玩家
                             if (guess_status != 0) {
-                                if (input == "开始游戏") {
-                                    group.sendMessage(
-                                        messageChainOf(
-                                            At(sender) + PlainText(
-                                                "\n 您已在游戏中，或结束游戏！\n"
-                                            )
-                                        )
-                                    )
-                                } else if (input == "结束游戏") {
-                                    user.put("guess_status", 0)
-                                    user.put("guess_number", 0)
-                                    File("$dataFolder/user/$user.json").writeText(user.toString())
-                                    group.sendMessage(
-                                        messageChainOf(
-                                            At(sender) + PlainText(
-                                                "\n 游戏结束！\n" +
-                                                        "$botName 欢迎下次使用!"
-                                            )
-                                        )
-                                    )
-                                } else {
-                                    //获取数字
-                                    val number = input.toInt()
-                                    //判断是否猜对
-                                    if (number == guess_number) {
-                                        user.put("guess_status", 0)
-                                        user.put("guess_number", 0)
-                                        val coins = user.getInt("coins") + 10
-                                        user.put("coins", coins)
-                                        File("$dataFolder/user/$user.json").writeText(user.toString())
+                                when  {
+                                    input.startsWith("开始") -> {
                                         group.sendMessage(
                                             messageChainOf(
                                                 At(sender) + PlainText(
-                                                    "\n $botName 恭喜你猜对了！\n" +
-                                                            "您获得了10金币！\n" +
-                                                            "您的金币数为：$coins\n" +
-                                                            "欢迎下次使用!"
+                                                    "\n 您已在游戏中，或结束游戏！\n"
                                                 )
                                             )
                                         )
-                                    } else {
-                                        //判断是否大于猜测数字
-                                        if (number > guess_number) {
-                                            guess_status = guess_status - 1
+                                    }
+                                    input.startsWith("结束") -> {
+                                        user.put("guess_status", 0)
+                                        user.put("guess_number", 0)
+                                        File("$dataFolder/user/${sender.id}.json").writeText(user.toString())
+                                        group.sendMessage(
+                                            messageChainOf(
+                                                At(sender) + PlainText(
+                                                    "\n 游戏结束！\n" +
+                                                            "$botName 欢迎下次使用!"
+                                                )
+                                            )
+                                        )
+                                    }
+                                    else -> {
+                                        //获取数字
+                                        val number = input.toInt()
+                                        //判断是否猜对
+                                        if (number == guess_number) {
+                                            user.put("guess_status", 0)
+                                            user.put("guess_number", 0)
+                                            val coins = user.getInt("coins") + 10
+                                            user.put("coins", coins)
+                                            File("$dataFolder/user/${sender.id}.json").writeText(user.toString())
                                             group.sendMessage(
                                                 messageChainOf(
                                                     At(sender) + PlainText(
-                                                        "\n 猜测数字大了！\n" +
-                                                                "您的猜测数字：$number\n" +
-                                                                "您还有$guess_status 次机会！\n"
+                                                        "\n $botName 恭喜你猜对了！\n" +
+                                                                "您获得了10金币！\n" +
+                                                                "您的金币数为：$coins\n" +
+                                                                "欢迎下次使用!"
                                                     )
                                                 )
                                             )
-                                            user.put("guess_status", guess_status)
-                                            File("$dataFolder/user/$user.json").writeText(user.toString())
                                         } else {
-                                            guess_status = guess_status - 1
-                                            group.sendMessage(
-                                                messageChainOf(
-                                                    At(sender) + PlainText(
-                                                        "\n 猜测数字小了！\n" +
-                                                                "您的猜测数字：$number\n" +
-                                                                "您还有$guess_status 次机会！\n"
+                                            //判断是否大于猜测数字
+                                            if (number > guess_number) {
+                                                guess_status = guess_status - 1
+                                                group.sendMessage(
+                                                    messageChainOf(
+                                                        At(sender) + PlainText(
+                                                            "\n 猜测数字大了！\n" +
+                                                                    "您的猜测数字：$number\n" +
+                                                                    "您还有$guess_status 次机会！\n"
+                                                        )
                                                     )
                                                 )
-                                            )
-                                            user.put("guess_status", guess_status)
-                                            File("$dataFolder/user/$user.json").writeText(user.toString())
+                                                user.put("guess_status", guess_status)
+                                                File("$dataFolder/user/${sender.id}.json").writeText(user.toString())
+                                            } else {
+                                                guess_status = guess_status - 1
+                                                group.sendMessage(
+                                                    messageChainOf(
+                                                        At(sender) + PlainText(
+                                                            "\n 猜测数字小了！\n" +
+                                                                    "您的猜测数字：$number\n" +
+                                                                    "您还有$guess_status 次机会！\n"
+                                                        )
+                                                    )
+                                                )
+                                                user.put("guess_status", guess_status)
+                                                File("$dataFolder/user/${sender.id}.json").writeText(user.toString())
+                                            }
                                         }
                                     }
                                 }
-                            } else{
-                                if(input == "开始游戏"){
-                                    guess_status = 10
-                                    guess_number = (1..100).random()
-                                    group.sendMessage(
-                                        messageChainOf(
-                                            At(sender) + PlainText(
-                                                "\n 游戏开始！\n" +
-                                                        "您有$guess_status 次机会！\n"
+                            }
+
+                            //次数已用尽或未开开始的用户
+                            else{
+                                when{
+                                    input.startsWith("开始") -> {
+                                        guess_status = 10
+                                        guess_number = (1..100).random()
+                                        group.sendMessage(
+                                            messageChainOf(
+                                                At(sender) + PlainText(
+                                                    "\n 游戏开始！\n" +
+                                                            "您有$guess_status 次机会！\n"
+                                                )
                                             )
                                         )
-                                    )
-                                    user.put("guess_status", guess_status)
-                                    user.put("guess_number", guess_number)
-                                    File("$dataFolder/user/$user.json").writeText(user.toString())
-                                }else{  //没有开始游戏
+                                        user.put("guess_status", guess_status)
+                                        user.put("guess_number", guess_number)
+                                        File("$dataFolder/user/${sender.id}.json").writeText(user.toString())
+                                    }else -> {  //没有开始游戏
                                     group.sendMessage(
                                         messageChainOf(
                                             At(sender) + PlainText(
@@ -637,8 +700,10 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                                             )
                                         )
                                     )
+                                    }
                                 }
                             }
+
                         }else{
                             group.sendMessage(
                                 messageChainOf(
@@ -669,6 +734,28 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
             logger.info("sayBack onDisable")
         }
     }
+
+fun getSongsId(m: String): String{
+    val client = OkHttpClient()
+    val request = Request.Builder()
+        .url("http://music.cyrilstudio.top/search?keywords=$m&limit=1")
+        .get()
+        .build()
+    val response = OkHttpClient().newCall(request).execute()
+    val responseBody = response.body?.string()
+    val json = JSONObject(responseBody)
+    //判空responseBody
+    if (responseBody != null) {
+        // 获取result[songs[{id}]]
+        val result = json.getJSONObject("result")
+        val songs = result.getJSONArray("songs")
+        // 提取songs[{id}]
+        val id = songs.getJSONObject(0).getInt("id")
+        return id.toString()
+    }else{
+        return "没有搜索到歌曲"
+    }
+}
 
 fun dwiki(m: String): String {
     val client = OkHttpClient()
