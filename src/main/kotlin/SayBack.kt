@@ -5,6 +5,7 @@ import com.greenhandzdl.SayBack.configFolder
 import com.greenhandzdl.SayBack.dataFolder
 import io.netty.handler.codec.http.HttpUtil
 import kotlinx.datetime.Clock
+import kotlinx.serialization.json.buildJsonObject
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
 import net.mamoe.mirai.contact.Contact.Companion.sendImage
@@ -17,11 +18,14 @@ import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.io.DataOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.StringReader
 import java.net.URL
 import java.net.URLConnection
+import javax.net.ssl.HttpsURLConnection
+import javax.print.attribute.standard.JobOriginatingUserName
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.random.Random
 
@@ -66,7 +70,6 @@ fun init() {
         if(!File("$configfile/敏感词.txt").exists()){
             File("$configfile/敏感词.txt").createNewFile()
         }
-
         //如果没有TBP.json则创建文件
         if (!File("$configfile/TBP.json").exists()) {
             File("$configfile/TBP.json").createNewFile()
@@ -79,6 +82,16 @@ fun init() {
             json.put("TerminalId", "")
             //写入文件
             File("$configfile/TBP.json").writeText(json.toString())
+        }
+        //如果没有mly.json则创建文件
+        if (!File("$configfile/mly.json").exists()) {
+            File("$configfile/mly.json").createNewFile()
+            //向文件初始几个值
+            val json = JSONObject()
+            json.put("api_key", "")
+            json.put("api_secret", "")
+            //写入文件
+            File("$configfile/mly.json").writeText(json.toString())
         }
 
         //data文件夹下的文件
@@ -247,6 +260,7 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                                             "* 网易云 歌名 \n" +
                                             "* 精准维基 + 检查文本\n" +
                                             "* 相关维基 + 检查文本\n" +
+                                            "* 问答 + 文本\n" +
                                             /**
                                             "* 问答 + 文本\n" +
                                              */
@@ -579,6 +593,52 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                         }
 
                     }
+
+                    message.contentToString().startsWith("问答") -> {
+                        var input = message.contentToString().replace("问答", "").replace("\\s".toRegex(), "")
+                        if (input.isEmpty()) {
+                            group.sendMessage(
+                                messageChainOf(
+                                    At(sender) + PlainText(
+                                        "\n 失败，请输入具体参数！\n"
+                                    )
+                                )
+                            )
+                        }else {
+                            //从status.json中获取send的coins
+                            val status = JSONObject(File("$dataFolder/user/$user.json").readText())
+                            //获取coins
+                            val coins = status.getInt("coins")
+                            if (coins >= 1) {
+                                //更新coins
+                                status.put("coins", coins - 1)
+                                //更新status.json
+                                File("$dataFolder/user/$user.json").writeText(status.toString())
+                                //发送消息
+                                group.sendMessage(
+                                    messageChainOf(
+                                        At(sender) + PlainText(
+                                            "\n 接受成功！\n" +
+                                                    "$botName 货币：${coins - 1}\n"
+                                        )
+                                    )
+                                )
+                                val content = mly(input,2,user,sender.nick,group.name,group.name)
+                                group.sendMessage(At(sender)+messageChainOf(PlainText(content)))
+                            } else {
+                                //发送消息
+                                group.sendMessage(
+                                    messageChainOf(
+                                        At(sender) + PlainText(
+                                            "\n 接受失败，请签到后再好好试试！\n" +
+                                                    "$botName 货币：$coins\n"
+                                        )
+                                    )
+                                )
+                            }
+                        }
+                    }
+
                     /**
                     message.contentToString().startsWith("问答") -> {
                     val m = message.contentToString().replace("问答", "")
@@ -714,14 +774,7 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                             )
                         }
                     }
-                    
-                    /***
-                    else -> {
-                        val m = message.contentToString()
-                        val responseMessage = tbp(m)
-                        group.sendMessage(messageChainOf(PlainText(responseMessage)))
-                    }
-                    ***/
+
                     message.contentToString().startsWith("关于") -> {
                         group.sendMessage(messageChainOf(PlainText("项目地址：https://github.com/greenhandzdl/mirai-plugins-sayBack")))
                     }
@@ -793,6 +846,66 @@ fun rwiki(m :String) :String{
     }
     return result
 }
+
+fun mly(message :String,type :Int,userId :String,userName :String,groupId :String,groupName :String) :String{
+    //读取/mly.json文件
+    val rjson = JSONObject(File("$configFolder/mly.json").readText())
+    //获取api_key,api_secret
+    val api_key = rjson.getString("api_key")
+    val api_secret = rjson.getString("api_secret")
+
+    val mollyUrl = "https://i.mly.app/reply"
+    val connection = URL(mollyUrl).openConnection() as HttpsURLConnection
+
+    // 设置请求
+    connection.requestMethod = "POST"
+    connection.connectTimeout = 5000
+    connection.doOutput = true
+    connection.doInput = true
+    connection.useCaches = false
+    connection.instanceFollowRedirects = true
+
+    // 设置Api请求头
+    connection.setRequestProperty("Api-Key", api_key)
+    connection.setRequestProperty("Api-Secret", api_secret)
+    connection.setRequestProperty("Content-Type", "application/json;charset=UTF-8")
+
+    //将json请求写入连接
+    val json = """
+        {
+            "content": "$message",
+            "type": $type,
+            "from": "$userId",
+            "fromName": "$userName",
+            "to": "$groupId",
+            "toName": "$groupName"
+        }
+    """.trimIndent()
+    connection.outputStream.write(json.toByteArray())
+    connection.outputStream.flush()
+    connection.outputStream.close()
+
+    // 测试中判断网络：val responseCode = connection.responseCode
+
+    // 读取返回的数据
+    val inputStream = connection.inputStream
+    val inputStreamReader = inputStream.reader()
+    val response = inputStreamReader.readText()
+    val jsonR = JSONObject(response)
+    //读取response里面的内容{data[{content}]}
+    val data = jsonR.getJSONArray("data")
+    val content = data.getJSONObject(0).getString("content")
+
+    // 关闭连接
+    inputStream.close()
+    inputStreamReader.close()
+    connection.disconnect()
+
+    return content
+}
+
+
+
 /**
 fun tbp(m :String) : String{
     val json = JSONObject(File("$configFolder/TBP.json").readText())
