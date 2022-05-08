@@ -11,9 +11,7 @@ import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
 import net.mamoe.mirai.contact.Contact.Companion.sendImage
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.globalEventChannel
-import net.mamoe.mirai.message.data.At
-import net.mamoe.mirai.message.data.PlainText
-import net.mamoe.mirai.message.data.messageChainOf
+import net.mamoe.mirai.message.data.*
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -28,6 +26,9 @@ import javax.net.ssl.HttpsURLConnection
 import javax.print.attribute.standard.JobOriginatingUserName
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.random.Random
+
+
+
 
 fun init() {
         //必要的初始化(文件夹)
@@ -55,6 +56,7 @@ fun init() {
             File("$configfile/config.json").createNewFile()
             val json = JSONObject()
             json.put("botName", "MiraiAutoReply")
+            json.put("botNumber", "机器人qq号")
             //写入文件
             File("$configfile/config.json").writeText(json.toString())
         }
@@ -234,6 +236,8 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
             init()//初始化配置文件
             update()//版本更新而做的兼容
 
+
+
             globalEventChannel().subscribeAlways<GroupMessageEvent> {
                 //sender.id group.id初始化
                 val user = sender.id.toString()
@@ -243,6 +247,7 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                 //获取config.json文件中的值
                 val config = JSONObject(File("$configFolder/config.json").readText())
                 val botName = config.getString("botName")
+                val botNumber  = config.getLong("botNumber")
 
 
                 when {
@@ -419,7 +424,7 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                             val json = JSONObject(File("$dataFolder/IMC/Image.json").readText())
                             //获取names并且更新
                             val names = json.getInt("names") + 1
-                            json.put("names", names + 1)
+                            json.put("names", names)
                             //更新data/IMC/Image.json
                             File("$dataFolder/IMC/Image.json").writeText(json.toString())
                             val back = URL("https://img.xjh.me/random_img.php?return=json").readText()
@@ -521,7 +526,10 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                                     )
                                 )
                                 val result = dwiki(m)
-                                group.sendMessage(messageChainOf(PlainText(result)))
+                                val forward: ForwardMessage = buildForwardMessage {
+                                    add(botNumber, botName, PlainText(result))
+                                }
+                                subject.sendMessage(forward)
                             }else{
                                 //发送消息
                                 group.sendMessage(
@@ -569,7 +577,10 @@ fun download(downLoadUrl: String , filename : String) :Boolean{
                                     )
                                 )
                                 val result = rwiki(m)
-                                group.sendMessage(messageChainOf(PlainText(result)))
+                                val forward: ForwardMessage = buildForwardMessage {
+                                    add(botNumber, botName, PlainText(result))
+                                }
+                                subject.sendMessage(forward)
                             }else{
                                 //发送消息
                                 group.sendMessage(
