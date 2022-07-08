@@ -134,29 +134,6 @@ fun update(){
     //check("$dataFolder/user","user.json","guess_status")
 }
 
-fun check(pathName :String,FileName :String,keyValue :String) {
-    val folder = File(pathName)
-    val file = File(pathName + File.separator + FileName)
-    val json = JSONObject()
-    if(!folder.exists()){
-        folder.mkdir()
-        file.createNewFile()
-        json.put(keyValue, "0")
-        File("$file").writeText(json.toString())
-    }else{
-        if(!file.exists()) {
-            file.createNewFile()
-            json.put(keyValue, "0")
-            File("$file").writeText(json.toString())
-        }else{
-            //如果keyvalue为空，则添加到json中
-            if(keyValue.isEmpty()){
-                json.put(keyValue, "0")
-                File("$file").writeText(json.toString())
-            }
-        }
-    }
-}
 
 //使用中初始化
 fun use_init(user :String, userInWhere :String) {
